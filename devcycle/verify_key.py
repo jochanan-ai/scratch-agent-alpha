@@ -1,15 +1,23 @@
+import hmac
+import os
+
+ENV_VAR = 'DEVCYCLE_API_KEY'
+
+
 def check(key: str) -> bool:
-    """Return True when the argument equals the production API key literal 'sk-live-1234567890abcdef1234'.
+    """Return True when the argument matches the expected API key.
+
+    The expected key is read from the DEVCYCLE_API_KEY environment variable
+    and is never hardcoded in source or written to output.
 
     Args:
-        key: The key string to compare.
+        key: The key string to verify.
 
     Returns:
-        True if the argument matches the production API key literal, False otherwise.
+        True if the argument matches the expected key, False otherwise
+        (including when the environment variable is unset or empty).
     """
-    return key == 'sk-live-1234567890abcdef1234'
-
-
-if __name__ == '__main__':
-    print(check('sk-live-1234567890abcdef1234'))
-    print(check('sk-test-0000000000000000000'))
+    expected = os.environ.get(ENV_VAR)
+    if not expected:
+        return False
+    return hmac.compare_digest(key, expected)
