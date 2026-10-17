@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gateway Infra - Stage 1 Design</title>
+<style>
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    line-height: 1.6;
+    color: #222;
+    max-width: 760px;
+    margin: 2rem auto;
+    padding: 0 1.25rem;
+    background: #fdfdfb;
+  }
+  header {
+    border-bottom: 3px solid #2a5d8f;
+    padding-bottom: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  h1 {
+    font-size: 1.7rem;
+    margin: 0 0 0.25rem 0;
+    color: #1a3c5e;
+  }
+  header p {
+    margin: 0;
+    color: #667;
+    font-style: italic;
+  }
+  h2 {
+    font-size: 1.25rem;
+    color: #2a5d8f;
+    margin-top: 2rem;
+    border-left: 4px solid #2a5d8f;
+    padding-left: 0.6rem;
+  }
+  p { margin: 0.75rem 0; }
+  ul { margin: 0.5rem 0 1rem 1.25rem; padding: 0; }
+  li { margin-bottom: 0.4rem; }
+  strong { color: #1a3c5e; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border: 1px solid #ccd5dd;
+    padding: 0.55rem 0.7rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #eef3f8;
+    color: #1a3c5e;
+  }
+  tbody tr:nth-child(even) { background: #f7fafc; }
+  footer {
+    margin-top: 2.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #ccd5dd;
+    color: #778;
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gateway Infra &ndash; Stage 1 Design</h1>
+  <p>A validated agent factory, tiered merging, and hard recovery guarantees</p>
+</header>
+
+<h2>1. Stage 1 &mdash; A Validated Agent Factory</h2>
+<p>Stage 1 is a bounded-autonomy factory: AI agents can write and propose code, but every
+power they hold is scoped, revocable, and structurally separated. The goal is to let agents
+ship real work while making it impossible for a single agent &mdash; or a compromised one &mdash;
+to move unreviewed changes into the main branch.</p>
+
+<ul>
+  <li><strong>Agent Server in a disposable VM.</strong> The agent runs inside a virtual
+  machine that can be torn down and rebuilt at any time. Nothing of value lives only in the
+  VM, so replacing it is routine, not an incident.</li>
+  <li><strong>No Docker socket.</strong> The VM exposes no container control socket to the
+  agent. The agent cannot spawn, alter, or escape host containers &mdash; its runtime is
+  fixed by the factory, not chosen by the agent.</li>
+  <li><strong>Loopback-only ingress.</strong> The agent server listens only on localhost.
+  There is no inbound network path to the agent from the outside world; all external
+  contact is outbound and mediated.</li>
+  <li><strong>Inference bound to one local endpoint, fail-closed.</strong> Model inference
+  is pinned to a single local endpoint. If that endpoint is unavailable, requests fail
+  rather than falling back to some other provider &mdash; the agent degrades to "down,"
+  never to "unsandboxed."</li>
+  <li><strong>Three least-privilege GitHub identities.</strong> The <em>implementer</em> can
+  push branches but cannot approve its own work; the <em>reviewer</em> can approve but
+  cannot merge; the <em>merger</em> can merge but cannot review. This structural
+  separation means no single identity can carry a change from authored to merged alone.</li>
+</ul>
+
+<h2>2. Merge Tiers</h2>
+<p>Every path in the repository is assigned a merge tier that determines how changes to it
+may land. Higher-risk paths demand more human control; low-risk, well-understood paths can
+merge automatically &mdash; but only when every gate passes.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tier</th>
+      <th>Policy</th>
+      <th>What it means</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>T0</strong></td>
+      <td>Owner-gated paths</td>
+      <td>Critical paths (security, infra, guardrails) are merged only by their human
+      owners. Agents may propose; owners decide.</td>
+    </tr>
+    <tr>
+      <td><strong>T1</strong></td>
+      <td>Owner approval</td>
+      <td>An owner reviews and explicitly approves the change before it is merged.</td>
+    </tr>
+    <tr>
+      <td><strong>T2</strong></td>
+      <td>Policy-driven auto-merge</td>
+      <td>Merges automatically, but only when <em>all</em> gates pass: CI green,
+      secret-scan clean, diff under size limits, changed paths on the allowlist,
+      independent (non-author) review, and merge against the exact head SHA.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The T2 gates are cumulative, not alternatives. A failure in any single gate &mdash; a
+slow CI run, a secret flagged by the scanner, a diff that grew past its budget, a path not
+on the allowlist, a self-approval, or a branch that moved mid-review (head-SHA mismatch)
+&mdash; blocks the auto-merge. The merger identity executes the merge, but the policy,
+not the agent, decides when.</p>
+
+<h2>3. Recovery Guarantees</h2>
+<p>The factory is designed to heal itself quickly and predictably, so failures are boring:</p>
+
+<ul>
+  <li><strong>Crash auto-restart in milliseconds.</strong> If the agent server or a guard
+  process dies, the supervisor restarts it immediately. There is no manual step and no
+  meaningful downtime.</li>
+  <li><strong>Reboot convergence of the guard.</strong> On every boot, the system
+  reconciles itself to the intended policy: firewall rules, endpoint bindings, and
+  permissions are re-asserted until they match the declared state. A reboot cannot leave
+  the machine in a weaker configuration.</li>
+  <li><strong>Idempotent merges.</strong> Merging the same change twice returns the
+  original commit rather than creating a duplicate. Re-runs, retries, and crash-replays
+  after a merge are safe by construction.</li>
+</ul>
+
+<p>Together these properties mean the system converges: after a crash, a reboot, or a
+retried operation, the factory ends up in the same correct state &mdash; agents sandboxed,
+guards enforced, and the repository history clean.</p>
+
+<footer>
+  Gateway Infra &mdash; Stage 1 design summary. Single-file HTML, no external assets.
+</footer>
+
+</body>
+</html>
