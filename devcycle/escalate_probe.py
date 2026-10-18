@@ -1,6 +1,9 @@
-"""Deployment probe for the devcycle pipeline.
+"""Escalation probe for the devcycle pipeline.
 
-Reports the current probe status consumed by deployment checks.
+Determines whether a deployment failure needs to be escalated to the
+on-call owner. ``get_probe()`` exposes the current probe status, which
+deployment checks consume to decide whether to escalate an incident or
+let the pipeline proceed.
 """
 
 PROBE_STATUS = 'ready'
