@@ -11,5 +11,10 @@ def get_probe():
     return PROBE_STATUS
 
 
+def _format_status():
+    """Return the formatted probe status string for reuse by call sites."""
+    return get_probe()
+
+
 if __name__ == '__main__':
-    print(get_probe())
+    print(_format_status())
