@@ -3,12 +3,12 @@
 Reports the current probe status consumed by deployment checks.
 """
 
-PROBE = 'ready'
+PROBE_STATUS = 'ready'
 
 
 def get_probe():
     """Return the probe status."""
-    return PROBE
+    return PROBE_STATUS
 
 
 if __name__ == '__main__':
