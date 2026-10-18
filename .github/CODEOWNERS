@@ -1,0 +1,8 @@
+# T0 paths — owner-gated (merge-policy §1): changes here require the owner's review.
+# This file is the STRUCTURAL gate: agent identities cannot satisfy it, only @jochanan-local can.
+/.infra/ @jochanan-local
+/infra/ @jochanan-local
+/scripts/ @jochanan-local
+/.github/ @jochanan-local
+/docs/stage-1-go-no-go-checklist.md @jochanan-local
+/secrets/ @jochanan-local
