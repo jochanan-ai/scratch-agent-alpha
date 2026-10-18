@@ -1,9 +1,18 @@
 """Escalation probe for the devcycle pipeline.
 
-Determines whether a deployment failure needs to be escalated to the
-on-call owner. ``get_probe()`` exposes the current probe status, which
-deployment checks consume to decide whether to escalate an incident or
-let the pipeline proceed.
+This module decides whether a deployment failure needs to be escalated
+to the on-call owner or can be left for the pipeline to retry on its
+own. Deployment checks consume the probe's status — exposed through
+``get_probe()`` — to decide whether to escalate an incident or let the
+pipeline proceed.
+
+The status lives in the module-level constant ``PROBE_STATUS`` and is
+returned unchanged by ``get_probe()``; ``_format_status()`` wraps that
+accessor for call sites that want a display-ready string. Running the
+module directly prints the current status to stdout:
+
+    $ python -m devcycle.escalate_probe
+    ready
 """
 
 PROBE_STATUS = 'ready'
